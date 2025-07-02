@@ -1,4 +1,5 @@
-// A* algorithm to find the shortest path between start and end points
+// Pathfinding.jsx
+// A* pathfinding algorithm to find the shortest path
 export const findShortestPath = (start, end, traversableGrid) => {
   const gridWidth = traversableGrid[0].length;
   const gridHeight = traversableGrid.length;
@@ -11,21 +12,24 @@ export const findShortestPath = (start, end, traversableGrid) => {
     { dx: 1, dy: 0 },  // Right
   ];
 
-  // Manhattan distance heuristic
+  // Heuristic function (Manhattan distance)
   const heuristic = (x, y) => Math.abs(x - end.x) + Math.abs(y - end.y);
 
   while (openSet.length > 0) {
-    openSet.sort((a, b) => a.f - b.f); // Sort by f-score (g + h)
+    // Sort by f-score (g + h)
+    openSet.sort((a, b) => a.f - b.f);
     const current = openSet.shift();
     const key = `${current.x},${current.y}`;
 
     if (closedSet.has(key)) continue;
     closedSet.add(key);
 
+    // Found the end point
     if (current.x === end.x && current.y === end.y) {
-      return [...current.path, [current.x, current.y]]; // Return the full path
+      return [...current.path, [current.x, current.y]];
     }
 
+    // Explore neighbors
     for (const { dx, dy } of directions) {
       const nx = current.x + dx;
       const ny = current.y + dy;
@@ -37,7 +41,7 @@ export const findShortestPath = (start, end, traversableGrid) => {
         ny >= 0 &&
         ny < gridHeight &&
         !closedSet.has(newKey) &&
-        traversableGrid[ny][nx] // Ensure the cell is traversable
+        traversableGrid[ny][nx] // Check if cell is traversable
       ) {
         const g = current.g + 1;
         const h = heuristic(nx, ny);
@@ -53,5 +57,5 @@ export const findShortestPath = (start, end, traversableGrid) => {
     }
   }
 
-  return []; // Return empty array if no path is found
+  return []; // No path found
 };

@@ -1,75 +1,79 @@
+// Grid.jsx
 import React, { useEffect, useRef } from 'react';
+import { findShortestPath } from './Pathfinding';
 
-// Canvas component to render the grid, path, and points
-const Grid = ({ path, shelves, startPoint, endPoint, onClick, cellSize, gridWidth, gridHeight }) => {
-  const canvasRef = useRef(null); // Define canvasRef
+// Grid component for rendering the canvas and handling clicks
+const Grid = ({ path, shelves, onClick, gridRows, gridCols, cellSize }) => {
+  const canvasRef = useRef(null);
 
+  // Draw the grid and path on canvas
   useEffect(() => {
-    const canvas = canvasRef.current; // Get canvas element
-    const ctx = canvas.getContext('2d'); // Get 2D context
-    canvas.width = gridWidth * cellSize; // Set canvas size
-    canvas.height = gridHeight * cellSize;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    canvas.width = gridCols * cellSize;
+    canvas.height = gridRows * cellSize;
 
     // Clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#fff';
+    ctx.fillStyle = '#fff';
     ctx.lineWidth = 0.5;
 
     // Draw vertical grid lines
-    for (let x = 0; x <= gridWidth; x++) {
+    for (let x = 0; x <= gridCols; x++) {
       ctx.beginPath();
       ctx.moveTo(x * cellSize, 0);
-      ctx.lineTo(x * cellSize, gridHeight * cellSize);
+      ctx.lineTo(x * cellSize, gridRows * cellSize);
       ctx.stroke();
     }
 
     // Draw horizontal grid lines
-    for (let y = 0; y <= gridHeight; y++) {
+    for (let y = 0; y <= gridRows; y++) {
       ctx.beginPath();
       ctx.moveTo(0, y * cellSize);
-      ctx.lineTo(gridWidth * cellSize, y * cellSize);
+      ctx.lineTo(gridCols * cellSize, y * cellSize);
       ctx.stroke();
     }
 
-    // Draw the path
+    // Draw path
     if (path.length > 0) {
-      ctx.fillStyle = '#00ff00'; // Green for path
+      ctx.fillStyle = '#00ff00'; // Green path
       path.forEach(([x, y]) => {
         ctx.fillRect(x * cellSize + 1, y * cellSize + 1, cellSize - 2, cellSize - 2);
       });
     }
 
-    // Draw start point
+    // Draw start and end points
+    const startPoint = path.length > 0 ? path[0] : null;
+    const endPoint = path.length > 1 ? path[path.length - 1] : null;
     if (startPoint) {
-      ctx.fillStyle = '#ff0000'; // Red for start
-      ctx.beginPath();
-      ctx.arc(startPoint.x * cellSize + cellSize / 2, startPoint.y * cellSize + cellSize / 2, cellSize / 4, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.fillStyle = '#ff0000'; // Red for start point
+      ctx.fillRect(startPoint.x * cellSize + 1, startPoint.y * cellSize + 1, cellSize - 2, cellSize - 2);
     }
-
-    // Draw end point
     if (endPoint) {
-      ctx.fillStyle = '#0000ff'; // Blue for end
-      ctx.beginPath();
-      ctx.arc(endPoint.x * cellSize + cellSize / 2, endPoint.y * cellSize + cellSize / 2, cellSize / 4, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.fillStyle = '#0000ff'; // Blue for end point
+      ctx.fillRect(endPoint.x * cellSize + 1, endPoint.y * cellSize + 1, cellSize - 2, cellSize - 2);
     }
-  }, [path, shelves, startPoint, endPoint, cellSize, gridWidth, gridHeight]);
+  }, [path, shelves, gridRows, gridCols, cellSize]);
+
+  // Handle canvas click and convert to grid coordinates
+  const handleCanvasClick = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    onClick(x, y);
+    // Display coordinates (for user feedback)
+    const gridX = Math.floor(x / cellSize);
+    const gridY = Math.floor(y / cellSize);
+    console.log(`Clicked cell: (${gridY},${gridX}) or ${String.fromCharCode(65 + gridX)}${gridY + 1}`);
+  };
 
   return (
     <canvas
       ref={canvasRef}
-      onClick={(e) => {
-        // Access the canvas element through the ref
-        const canvas = canvasRef.current;
-        if (!canvas) return; // Add a check in case the ref is not yet assigned
-
-        const rect = canvas.getBoundingClientRect();
-        const x = Math.floor((e.clientX - rect.left) / cellSize); // Convert to grid cell
-        const y = Math.floor((e.clientY - rect.top) / cellSize);
-        onClick(x, y); // Pass grid cell coordinates
-      }}
-      style={{ width: `${gridWidth * cellSize}px`, height: `${gridHeight * cellSize}px`, position: 'absolute', zIndex: 10 }}
+      onClick={handleCanvasClick}
+      className="absolute top-0 left-0 z-0"
+      style={{ background: '#333' }}
     />
   );
 };

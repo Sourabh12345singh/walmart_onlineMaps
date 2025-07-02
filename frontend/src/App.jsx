@@ -1,192 +1,261 @@
-import React, { useState, useEffect } from 'react';
-import { Responsive as ResponsiveGridLayout, WidthProvider } from 'react-grid-layout';
+// App.jsx
+import React, { useState } from 'react';
+import Grid from './Grid';
+import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import Grid from './Grid';
+import './index.css';
 import { findShortestPath } from './Pathfinding';
 
-const GridLayout = WidthProvider(ResponsiveGridLayout);
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
-// Check if a shelf overlaps with existing shelves
-const doesShelfOverlap = (newShelf, existingShelves) => {
-  for (const shelf of existingShelves) {
-    if (
-      newShelf.x < shelf.x + shelf.w &&
-      newShelf.x + newShelf.w > shelf.x &&
-      newShelf.y < shelf.y + shelf.h &&
-      newShelf.y + newShelf.h > shelf.y
-    ) {
-      return true; // Overlap detected
-    }
-  }
-  return false; // No overlap
-};
-
-// Main component for the supermarket map
 function App() {
-  const cellSize = 20; // Size of each grid cell in pixels
-  const gridWidth = 60; // 1200px / 20
-  const gridHeight = 30; // 600px / 20
+  // State for grid dimensions, shelves, points, and path
+  const [gridRows, setGridRows] = useState(30); // Default 30 rows
+  const [gridCols, setGridCols] = useState(60); // Default 60 columns
   const [isPlacingShelf, setIsPlacingShelf] = useState(false);
-  const [shelves, setShelves] = useState([]); // Shelves in grid cell coordinates
-  const [startPoint, setStartPoint] = useState(null); // Start point in grid cells
-  const [endPoint, setEndPoint] = useState(null); // End point in grid cells
-  const [path, setPath] = useState([]); // Path as array of [x, y] grid cells
-  const [traversableGrid, setTraversableGrid] = useState(
-    Array(gridHeight).fill().map(() => Array(gridWidth).fill(true))
-  ); // 2D grid: true = traversable, false = blocked
-  const [shelfColor, setShelfColor] = useState('#ffffff'); // Default to white
+  const [shelves, setShelves] = useState([]);
+  const [startPoint, setStartPoint] = useState(null);
+  const [endPoint, setEndPoint] = useState(null);
+  const [path, setPath] = useState([]);
+  const [shelfColor, setShelfColor] = useState('#ccc'); // Default shelf color
+  const [shelfLabel, setShelfLabel] = useState(''); // Shelf label input
+  const cellSize = 50; // Grid cell size in pixels
 
-  // Update traversable grid when shelves change
-  useEffect(() => {
-    const newGrid = Array(gridHeight).fill().map(() => Array(gridWidth).fill(true));
-    shelves.forEach(shelf => {
-      // Ensure shelf bounds are valid
-      if (
-        shelf.x >= 0 &&
-        shelf.y >= 0 &&
-        shelf.x + shelf.w <= gridWidth &&
-        shelf.y + shelf.h <= gridHeight
-      ) {
-        for (let y = shelf.y; y < shelf.y + shelf.h; y++) {
-          for (let x = shelf.x; x < shelf.x + shelf.w; x++) {
-            newGrid[y][x] = false; // Mark shelf cells as non-traversable
-          }
-        }
-      }
-    });
-    setTraversableGrid(newGrid);
-
-    // Recalculate path if start and end points are set
-    if (startPoint && endPoint) {
-      const newPath = findShortestPath(startPoint, endPoint, newGrid);
-      setPath(newPath);
-    }
-  }, [shelves, startPoint, endPoint, gridWidth, gridHeight]);
-
-  // Handle clicks on the grid for placing shelves or setting points
+  // Handle grid click to place shelves or set start/end points
   const handleGridClick = (x, y) => {
+    // Convert pixel coordinates to grid coordinates
+    const gridX = Math.floor(x / cellSize);
+    const gridY = Math.floor(y / cellSize);
+
+    if (gridX < 0 || gridX >= gridCols || gridY < 0 || gridY >= gridRows) return;
+
     if (isPlacingShelf) {
-      const newShelf = { x, y, w: 2, h: 1, i: shelves.length.toString() };
-      // Check if shelf is within bounds and cells are traversable
-      if (
-        x + 2 <= gridWidth &&
-        y < gridHeight &&
-        traversableGrid[y][x] &&
-        traversableGrid[y][x + 1] &&
-        !doesShelfOverlap(newShelf, shelves)
-      ) {
-        setShelves([...shelves, newShelf]);
-        setIsPlacingShelf(false);
-      }
-    } else if (!traversableGrid[y][x]) {
-      return; // Prevent setting points on non-traversable cells
+      // Add new shelf with user-specified color and label
+      setShelves([
+        ...shelves,
+        {
+          x: gridX * cellSize, // Align to grid
+          y: gridY * cellSize,
+          w: 2 * cellSize, // Default width: 2 cells
+          h: 1 * cellSize, // Default height: 1 cell
+          i: shelves.length.toString(),
+          color: shelfColor,
+          label: shelfLabel || `Shelf ${shelves.length + 1}`,
+        },
+      ]);
+      setIsPlacingShelf(false);
+      setShelfLabel(''); // Reset label input
     } else if (!startPoint) {
-      setStartPoint({ x, y }); // Set start point
-    } else if (!endPoint && (x !== startPoint.x || y !== startPoint.y)) {
-      setEndPoint({ x, y }); // Set end point
-      const newPath = findShortestPath(startPoint, { x, y }, traversableGrid);
-      setPath(newPath); // Calculate path
+      setStartPoint({ x: gridX, y: gridY });
+    } else if (!endPoint) {
+      // Check if click is on a shelf
+      const clickedShelf = shelves.find(shelf => {
+        const shelfX = Math.floor(shelf.x / cellSize);
+        const shelfY = Math.floor(shelf.y / cellSize);
+        const shelfW = Math.floor(shelf.w / cellSize);
+        const shelfH = Math.floor(shelf.h / cellSize);
+        return (
+          gridX >= shelfX &&
+          gridX < shelfX + shelfW &&
+          gridY >= shelfY &&
+          gridY < shelfY + shelfH
+        );
+      });
+      if (clickedShelf) {
+        // Set end point to the top-left corner of the clicked shelf
+        setEndPoint({ x: Math.floor(clickedShelf.x / cellSize), y: Math.floor(clickedShelf.y / cellSize) });
+      }
     }
   };
 
+  // Handle manual input for start point (e.g., "2,3" or "A1")
+  const handleStartPointInput = (input) => {
+    let x, y;
+    if (input.match(/^[A-Za-z]\d+$/)) {
+      // Handle "A1" format
+      const colLetter = input[0].toUpperCase();
+      const rowNum = parseInt(input.slice(1)) - 1;
+      x = colLetter.charCodeAt(0) - 'A'.charCodeAt(0);
+      y = rowNum;
+    } else if (input.match(/^\d+,\d+$/)) {
+      // Handle "row,col" format
+      [y, x] = input.split(',').map(num => parseInt(num));
+    } else {
+      return; // Invalid input
+    }
+    if (x >= 0 && x < gridCols && y >= 0 && y < gridRows) {
+      setStartPoint({ x, y });
+    }
+  };
+
+  // Calculate path when start and end points are set
+  const calculatePath = () => {
+    if (startPoint && endPoint) {
+      // Create traversable grid
+      const grid = Array(gridRows)
+        .fill()
+        .map(() => Array(gridCols).fill(true));
+      shelves.forEach(shelf => {
+        const shelfX = Math.floor(shelf.x / cellSize);
+        const shelfY = Math.floor(shelf.y / cellSize);
+        const shelfW = Math.floor(shelf.w / cellSize);
+        const shelfH = Math.floor(shelf.h / cellSize);
+        for (let y = shelfY; y < shelfY + shelfH && y < gridRows; y++) {
+          for (let x = shelfX; x < shelfX + shelfW && x < gridCols; x++) {
+            grid[y][x] = false; // Mark shelf cells as non-traversable
+          }
+        }
+      });
+      // Find shortest path using A* algorithm
+      const pathCells = findShortestPath(startPoint, endPoint, grid);
+      setPath(pathCells);
+    }
+  };
+
+  // Update path whenever startPoint or endPoint changes
+  React.useEffect(() => {
+    calculatePath();
+  }, [startPoint, endPoint, shelves]);
+
+  // Handle shelf drag/resize stop to update shelf positions
+  const onLayoutChange = (newLayout) => {
+    setShelves(
+      newLayout.map((item, index) => ({
+        ...shelves[index],
+        x: item.x * cellSize, // Convert to pixel coordinates
+        y: item.y * cellSize,
+        w: item.w * cellSize,
+        h: item.h * cellSize,
+      }))
+    );
+  };
+
   return (
-    // Container with fixed dimensions
-    <div style={{ width: '1200px', height: '600px', position: 'relative', background: '#000' }}>
-      {/* Buttons and color picker for user interaction */}
-      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 100, display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <button
-          onClick={() => setIsPlacingShelf(true)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#fff',
-            color: '#000',
-            border: '1px solid #000',
-            cursor: 'pointer',
-            fontSize: '16px',
-          }}
-        >
-          Place Shelf
-        </button>
-        <button
-          onClick={() => {
-            setStartPoint(null);
-            setEndPoint(null);
-            setPath([]); // Clear path and points
-          }}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#fff',
-            color: '#000',
-            border: '1px solid #000',
-            cursor: 'pointer',
-            fontSize: '16px',
-          }}
-        >
-          Clear Path
-        </button>
-        <input
-          type="color"
-          value={shelfColor}
-          onChange={(e) => setShelfColor(e.target.value)}
-          style={{ cursor: 'pointer' }}
-        />
+    <div style={{ height: '100vh', width: '100vw', margin: 0, background: '#000', position: 'relative' }}>
+      {/* Control panel for grid settings, shelf customization, and start point */}
+      <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '10px', background: '#fff', padding: '10px', borderRadius: '5px' }}>
+        <div>
+          <label>Grid Rows: </label>
+          <input
+            type="number"
+            value={gridRows}
+            onChange={(e) => setGridRows(Math.max(1, parseInt(e.target.value) || 30))}
+            style={{ width: '60px', marginRight: '10px' }}
+          />
+          <label>Grid Columns: </label>
+          <input
+            type="number"
+            value={gridCols}
+            onChange={(e) => setGridCols(Math.max(1, parseInt(e.target.value) || 60))}
+            style={{ width: '60px' }}
+          />
+        </div>
+        <div>
+          <button
+            onClick={() => setIsPlacingShelf(true)}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#fff',
+              color: '#000',
+              border: '1px solid #000',
+              cursor: 'pointer',
+              fontSize: '16px',
+            }}
+          >
+            Place Shelf
+          </button>
+          <button
+            onClick={() => {
+              setStartPoint(null);
+              setEndPoint(null);
+              setPath([]);
+            }}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#fff',
+              color: '#000',
+              border: '1px solid #000',
+              cursor: 'pointer',
+              fontSize: '16px',
+              marginLeft: '10px',
+            }}
+          >
+            Clear Path
+          </button>
+        </div>
+        <div>
+          <label>Shelf Color: </label>
+          <input
+            type="color"
+            value={shelfColor}
+            onChange={(e) => setShelfColor(e.target.value)}
+            style={{ marginRight: '10px' }}
+          />
+          <label>Shelf Label: </label>
+          <input
+            type="text"
+            value={shelfLabel}
+            onChange={(e) => setShelfLabel(e.target.value)}
+            placeholder="Enter shelf label"
+            style={{ width: '120px' }}
+          />
+        </div>
+        <div>
+          <label>Start Point (e.g., "2,3" or "A1"): </label>
+          <input
+            type="text"
+            onChange={(e) => handleStartPointInput(e.target.value)}
+            placeholder="Enter start point"
+            style={{ width: '100px' }}
+          />
+        </div>
       </div>
-      {/* Canvas grid component */}
+      {/* Grid component for rendering the canvas */}
       <Grid
         path={path}
         shelves={shelves}
-        startPoint={startPoint}
-        endPoint={endPoint}
         onClick={handleGridClick}
+        gridRows={gridRows}
+        gridCols={gridCols}
         cellSize={cellSize}
-        gridWidth={gridWidth}
-        gridHeight={gridHeight}
-        style={{ position: 'absolute', zIndex: 10 }}
       />
-      {/* GridLayout for draggable/resizable shelves */}
-      <GridLayout
+      {/* Responsive grid layout for shelves */}
+      <ResponsiveGridLayout
         className="layout"
-        layouts={{ lg: shelves }}
-        cols={{ lg: gridWidth, md: gridWidth, sm: gridWidth }}
-        breakpoints={{ lg: 1200, md: 996, sm: 768 }}
+        layouts={{ lg: shelves.map(shelf => ({
+          ...shelf,
+          x: Math.floor(shelf.x / cellSize),
+          y: Math.floor(shelf.y / cellSize),
+          w: Math.floor(shelf.w / cellSize),
+          h: Math.floor(shelf.h / cellSize),
+        })) }}
+        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+        cols={{ lg: gridCols, md: gridCols, sm: gridCols, xs: gridCols, xxs: gridCols }}
         rowHeight={cellSize}
-        width={1200}
-        isDraggable={true}
-        isResizable={true}
-        style={{ position: 'absolute', top: '0', left: '0', zIndex: 0 }}
-        onLayoutChange={(newLayout) => {
-          // Update shelves and ensure grid cell alignment
-          const updatedShelves = newLayout.map(shelf => ({
-            ...shelf,
-            x: Math.round(shelf.x),
-            y: Math.round(shelf.y),
-            w: Math.max(1, Math.round(shelf.w)),
-            h: Math.max(1, Math.round(shelf.h)),
-          }));
-          // Only update if no overlaps
-          if (
-            !updatedShelves.some((shelf, index) =>
-              doesShelfOverlap(shelf, updatedShelves.filter((_, i) => i !== index))
-            )
-          ) {
-            setShelves(updatedShelves);
-          }
-        }}
+        width={gridCols * cellSize}
+        style={{ position: 'absolute', top: 0, left: 0, zIndex: 5 }}
+        onLayoutChange={onLayoutChange}
+        isDraggable
+        isResizable
       >
         {shelves.map(shelf => (
           <div
             key={shelf.i}
             style={{
-              background: shelfColor,
+              background: shelf.color,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               border: '1px solid #000',
-              pointerEvents: isPlacingShelf ? 'none' : 'auto',
+              color: '#000',
+              fontSize: '14px',
             }}
           >
-            Shelf {shelf.i}
+            {shelf.label}
           </div>
         ))}
-      </GridLayout>
+      </ResponsiveGridLayout>
     </div>
   );
 }
