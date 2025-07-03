@@ -3,10 +3,10 @@ import React, { useEffect, useRef } from 'react';
 import { findShortestPath } from './Pathfinding';
 
 // Grid component for rendering the canvas and handling clicks
-const Grid = ({ path, shelves, onClick, gridRows, gridCols, cellSize }) => {
+const Grid = ({ path, shelves, onClick, gridRows, gridCols, cellSize, startPoint, endPoint }) => {
   const canvasRef = useRef(null);
 
-  // Draw the grid and path on canvas
+  // Draw the grid, path, and start/end points on canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -37,24 +37,39 @@ const Grid = ({ path, shelves, onClick, gridRows, gridCols, cellSize }) => {
 
     // Draw path
     if (path.length > 0) {
+      console.log('Rendering path:', path);
       ctx.fillStyle = '#00ff00'; // Green path
       path.forEach(([x, y]) => {
         ctx.fillRect(x * cellSize + 1, y * cellSize + 1, cellSize - 2, cellSize - 2);
       });
+    } else {
+      console.log('No path to render');
     }
 
-    // Draw start and end points
-    const startPoint = path.length > 0 ? path[0] : null;
-    const endPoint = path.length > 1 ? path[path.length - 1] : null;
+    // Draw start point (red square)
     if (startPoint) {
       ctx.fillStyle = '#ff0000'; // Red for start point
       ctx.fillRect(startPoint.x * cellSize + 1, startPoint.y * cellSize + 1, cellSize - 2, cellSize - 2);
     }
+
+    // Draw end point (red location pin)
     if (endPoint) {
-      ctx.fillStyle = '#0000ff'; // Blue for end point
-      ctx.fillRect(endPoint.x * cellSize + 1, endPoint.y * cellSize + 1, cellSize - 2, cellSize - 2);
+      ctx.fillStyle = '#ff0000'; // Red for end point
+      const x = endPoint.x * cellSize + cellSize / 2;
+      const y = endPoint.y * cellSize + cellSize / 2;
+      // Draw circle for pin head
+      ctx.beginPath();
+      ctx.arc(x, y - cellSize / 4, cellSize / 4, 0, 2 * Math.PI);
+      ctx.fill();
+      // Draw triangle for pin base
+      ctx.beginPath();
+      ctx.moveTo(x - cellSize / 4, y - cellSize / 4);
+      ctx.lineTo(x + cellSize / 4, y - cellSize / 4);
+      ctx.lineTo(x, y + cellSize / 4);
+      ctx.closePath();
+      ctx.fill();
     }
-  }, [path, shelves, gridRows, gridCols, cellSize]);
+  }, [path, shelves, gridRows, gridCols, cellSize, startPoint, endPoint]);
 
   // Handle canvas click and convert to grid coordinates
   const handleCanvasClick = (e) => {

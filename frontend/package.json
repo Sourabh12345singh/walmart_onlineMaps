@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
+    "leaflet-path-drag": "^1.9.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-grid-layout": "^1.5.2"
+    "react-grid-layout": "^1.5.2",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
